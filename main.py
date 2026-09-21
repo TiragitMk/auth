@@ -172,6 +172,9 @@ class Admin(User):
         super().__init__(username, password, db, id)
         self.menu_choices = {1: self.get_my_data, 2: self.add_or_remove, 3: self.credential_mod_options, 4: self.logout}
 
+    def init_user_action(self):
+        return super().init_user_action()
+
     def show_options(self):
         print(f"\nBienvenido {self.username}. ¿Qué deseas hacer?")
         print("1: Ver el perfil de un usuario.\n2: Modificar los productos de un usuario.\n" \
@@ -258,10 +261,10 @@ class Admin(User):
             elif new_password == "exit":
                 break
             else:
-                self.database.modify_password(user, self.database.data[user]["password"], new_password)
+                self.database.modify_password(user, new_password)
                 if user == self.username:
                     self.password = new_password
-                print("Nombre de usuario modificado con éxito.")
+                print("Contraseña modificada con éxito.")
                 break
 
         self.init_user_action()
@@ -329,8 +332,8 @@ class DatabaseAccess():
             self.delete_user(old)
             print("Nombre de usuario modificado con éxito.")
 
-    def modify_password(self, username, old, new):
-            self.data[username][old] = new
+    def modify_password(self, username, new):
+            self.data[username]["password"] = new
             print("Contraseña modificada con éxito.")
 
     def add_product_to_data(self, username, product):
