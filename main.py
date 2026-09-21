@@ -11,7 +11,7 @@ class User():
 
     def show_options(self):
         """
-        Imprime las opciones del usuario.
+        Imprime las opciones del usuario en el menú principal.
         """
         print(f"\nBienvenido {self.username}. ¿Qué deseas hacer?")
         print("1: Ver mi perfil.\n2: Añadir o eliminar un producto de mi lista.\n3: Modificar mis credenciales.\n4: Cerrar sesión.")
@@ -30,20 +30,33 @@ class User():
         return user_choice
         
     def execute_user_choice(self, user_choice):
+        """
+        Ejecuta la elección del usuario sobre el menú, usando el dispatch table menu_choices.
+        """
         self.menu_choices[user_choice]()
 
     def init_user_action(self):
+        """
+        Inicializa el menú inicial de la sesión.
+        Primero muestra las opciones, luego obtiene la elección, y luego la ejecuta.
+        """
         self.show_options()
         user_choice = self.get_user_choice()
         self.execute_user_choice(user_choice)
 
     def get_my_data(self):
+        """Devuelve los datos del usuario."""
         datos = f"\nUsuario: {self.username}\nContraseña: {self.password}\nPermisos: Usuario\n"
         datos += f"id: {self.id}\nLista de productos: {self.user["products"]}"
         print(datos)
         self.init_user_action()
 
     def credential_mod_options(self):
+        """
+        Muestras las opciones del menú de modificar credenciales.
+        También recoge la elección y llama a la función de su propia dispatch table.
+        Se puede dividir en varias funciones pequeñas.
+        """
         print("\n1: Modificar mi usuario.\n2: Modificar mi contraseña.\n3: Volver al menú.")
         user_choice_options = {1:self.set_username, 2:self.set_password}
         while True:
@@ -62,6 +75,10 @@ class User():
         self.init_user_action()
 
     def set_username(self):
+        """
+        Modifica el username del usuario. Primero consigue los inputs, los verifica con varias guardias,
+        y luego ejecuta el cambio de nombre con un método de la base de datos, y cambia self.username.
+        """
         while True:
             new_username = input("Nuevo usuario o 'exit': ")
             verify_password = input("Contraseña antigua: ") == self.password
@@ -78,6 +95,9 @@ class User():
         self.init_user_action()
 
     def set_password(self):
+        """
+        Muy parecido a set_username, pero con la contraseña.
+        """
         while True:
             new_password = input("Nueva contraseña o 'exit': ")
             verify_password = input("Contraseña antigua: ") == self.password
@@ -95,8 +115,11 @@ class User():
 
     def add_or_remove(self, user = None):
         """
+        Muestra menú, obtiene elección y ejecuta la elección, traspasando un parámetro "user"
+        que no tiene utilidad en la clase User, pero sí la tiene en Admin.
         Problema con esta, add_product y add_or_remove:
         No me detecta como valor de parámetro default el 'self.username', porque el nombre "self" no está definido.
+        Para eso se recurre a un valor predeterminado None y un if else abajo. Se marca con comentario.
         """
         print("\n1: Añadir un producto a la lista.\n2: Eliminar un producto de la lista.\n3: Volver al menú.")
         ADD_REMOVE_OPTIONS = {1: self.add_product, 2: self.rm_product}
@@ -112,7 +135,7 @@ class User():
             elif user_choice == 3:
                 break
             else:
-                if user == None:
+                if user == None:           # Esto existe porque el valor default de user = self.username no funciona.
                     usuario = self.username
                 else:
                     usuario = user
@@ -122,8 +145,9 @@ class User():
 
     def add_product(self, user = None):
         """
-        Problema con esta, add_product y add_or_remove:
-        No me detecta como valor de parámetro default el 'self.username', porque el nombre "self" no está definido.
+        Añade un producto a la lista de un usuario, que por defecto es el propio usuario.
+        En la clase Admin se reutiliza este método, pasándole un usuario al que añade un producto.
+        Mismo problema que con add_or_remove y con rm_product.
         """
         producto = input("Producto a añadir (o escribe 'exit'): ")
         if producto != "exit":
@@ -137,6 +161,8 @@ class User():
 
     def rm_product(self, user = None):
         """
+        Elimina un producto de la lista del usuario escogido, por defecto el de la propia sesión.
+        Igual que add_product pero elimina un producto ya existente en la lista.
         Problema con esta, add_product y add_or_remove:
         No me detecta como valor de parámetro default el 'self.username', porque el nombre "self" no está definido.
         """
@@ -159,21 +185,25 @@ class User():
         self.init_user_action()
 
     def logout(self):
-        # Posible foco de problemas.
+        """
+        Cierra la sesión actual.
+        La función anon_register_login_pipeline sobreescribe la instancia de User/Admin con un None,
+        por lo que la sesión queda efectivamente cerrada, y luego se ejecuta el menú inicial de nuevo.
+        Posible foco de problemas si hay sesiones muy largas con muchas acciones,
+        hay que testear los procesos en profundidad.
+        """
         print("\nCerrando sesión...\n")
         self.database.anon_register_login_pipeline()
 
 class Admin(User):
     """
-    OJO: No modifica contraseñas aún. Es un bug.
+    Clase heredada de User. Tiene permisos para hacer lo que hace User, pero con todos los usuarios de data,
+    y además puede crear y eliminar usuarios.
     """
 
     def __init__(self, username, password, db, id):
         super().__init__(username, password, db, id)
         self.menu_choices = {1: self.get_my_data, 2: self.add_or_remove, 3: self.credential_mod_options, 4: self.logout}
-
-    def init_user_action(self):
-        return super().init_user_action()
 
     def show_options(self):
         print(f"\nBienvenido {self.username}. ¿Qué deseas hacer?")
@@ -190,6 +220,11 @@ class Admin(User):
             self.menu_choices[user_choice](self.define_an_user())
 
     def define_an_user(self):
+        """
+        Función de utilidad que se usa para definir un usuario objetivo.
+        A este usuario objetivo se le aplican las funciones que hace el Admin.
+        Usado solo en execute_user_choice, que pasa el resultado a todas las funciones subsecuentes.
+        """
         while True:
             targeted_user = input("¿A qué usuario quieres acceder? ")
             if self.database.data.get(targeted_user, False):
@@ -203,7 +238,7 @@ class Admin(User):
         Sería más eficiente iterar sobre claves de cada usuario, pero sería menos visual.
         Si se añadieran muchas entradas o se espera que el programa crezca, sería necesario.
         """
-        datos = f"\nUsuario: {user}\nContraseña: {self.database.data.get(user)["password"]}\nPermisos: {str(self.database.data.get(user)["permissions"])}\n"
+        datos = f"\nUsuario: {user}\nContraseña: {self.database.data.get(user)["password"]}\nPermisos: {self.database.data.get(user)["permissions"].__name__}\n"
         datos += f"id: {self.database.data.get(user)["id"]}\nLista de productos: {self.database.data.get(user)["products"]}"
         print(datos)
         self.init_user_action()
