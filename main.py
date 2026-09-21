@@ -264,7 +264,6 @@ class Admin(User):
                 self.database.modify_password(user, new_password)
                 if user == self.username:
                     self.password = new_password
-                print("Contraseña modificada con éxito.")
                 break
 
         self.init_user_action()
