@@ -9,6 +9,8 @@ class User():
         self.menu_choices = {1: self.get_my_data, 2: self.add_or_remove, 3: self.credential_mod_options, 4: self.logout}
         self.init_user_action()
 
+    # Métodos y utilidades del menú de opciones.
+
     def show_options(self):
         """
         Imprime las opciones del usuario en el menú principal.
@@ -43,6 +45,8 @@ class User():
         self.show_options()
         user_choice = self.get_user_choice()
         self.execute_user_choice(user_choice)
+
+    # Métodos de User.
 
     def get_my_data(self):
         """Devuelve los datos del usuario."""
@@ -205,6 +209,8 @@ class Admin(User):
         super().__init__(username, password, db, id)
         self.menu_choices = {1: self.get_my_data, 2: self.add_or_remove, 3: self.credential_mod_options, 4: self.logout}
 
+    # Utilidades y funciones del menú de opciones. Algunas cosas son heredadas de User.
+
     def show_options(self):
         print(f"\nBienvenido {self.username}. ¿Qué deseas hacer?")
         print("1: Ver el perfil de un usuario.\n2: Modificar los productos de un usuario.\n" \
@@ -231,6 +237,8 @@ class Admin(User):
                 break
             print("Este usuario no existe.")
         return targeted_user
+
+    # Métodos del Admin.
 
     def get_my_data(self, user):
         """
@@ -285,7 +293,7 @@ class Admin(User):
 
     def set_password(self, user):
         """
-        REVISAR: No parece que cambie la contraseña.
+        Cambia la contraseña de un usuario. Otra función que se puede subdividir en varias.
         """
         while True:
             new_password = input("Nueva contraseña o 'exit': ")
@@ -304,6 +312,10 @@ class Admin(User):
         self.init_user_action()
 
     def create_user(self, user):
+        """
+        Crea un usuario. Tiene el parámetro user porque execute_user_choice se lo pasa,
+        pero en realidad no lo usa de momento, porque no hace falta.
+        """
         permission_options = {1: User, 2: Admin}
         while True:
             try:
@@ -319,7 +331,7 @@ class Admin(User):
 
     def remove_user(self, user):
         """
-        Verifica la contraseña del admin y elimina un usuario.
+        Verifica con la contraseña del admin y elimina un usuario existente en self.database.data.
         """
         if user == self.username:
             print("No te puedes eliminar a ti mismo.")
@@ -330,9 +342,7 @@ class Admin(User):
                 print("Usuario eliminado con éxito.")
             else:
                 print("Contraseña incorrecta. Devolviendo al menú.")
-        self.init_user_action()
-
-        
+        self.init_user_action()   
 
 class DatabaseAccess():
 
@@ -352,7 +362,7 @@ class DatabaseAccess():
 
     def add_new_user(self, username,  password,  permissions = User):
         """
-        Usado para añadir un usuario a la base de datos. Usuario base por defecto.
+        Usado para añadir un usuario a la base de datos. Usuario tipo 'User' por defecto.
         """
         self._counter()
         new_user_data = {username:{"permissions":permissions, "password": password, "id":self.user_counter, "products":[]}}
@@ -372,12 +382,20 @@ class DatabaseAccess():
 
     def add_product_to_data(self, username, product):
         self.data[username]["products"].append(product)
+
     def rm_product_from_data(self, username, product):
         self.data[username]["products"].remove(product)
 
     # Registrar, hacer login, o cerrar sesión.
 
     def register(self, called_by_admin = False, admin = None, permission_option = User):
+        """
+        Registra un usuario en la lista.
+        Si es called_by_admin (un Admin la llama desde create_user), no inicia sesión
+        y de ser 'exit', devuelve al menú de la sesión que ya está abierta en lugar del menú inicial.
+        Si la llama un anónimo (desde el menú principal con sesión cerrada),
+        al crear la cuenta inicia la sesión de la cuenta recién creada.
+        """
         while True:
             username = input("Username (o exit): ")
             password = input("Password (o exit): ")
@@ -402,11 +420,11 @@ class DatabaseAccess():
 
     def login(self, uname = None, passw = None):
         """
-        Si recibe parámetros inicia sesión en esos parámetros (esto es por register).
+        Si recibe parámetros inicia sesión en esos parámetros (esto es por self.register).
         Si no los recibe, itera una vez, no hace nada, y entonces pide input de username y password.
         Reitera hasta que encuentra una combinación válida, y loggea.
         MUY susceptible a bruteforcing. No pensado para escenarios auténticos.
-        Es la única función que crea User(), Register bebe de ella y hace login cuando registra usuario.
+        Es la única función que crea instancia de User() o Admin(), Register bebe de ella al hacer login cuando registra usuario.
         """
         username = uname
         password = passw
@@ -436,9 +454,11 @@ class DatabaseAccess():
             self.anon_register_login_pipeline()
 
     def logoff(self):
+        """Sobreescribe la sesión actual por None, cerrándola."""
         self.current_session = None
 
     def exit(self):
+        """No llama a otro menú, por lo que la ejecución termina."""
         print("Saliendo del menú...")
 
     # Menú de usuario anónimo (antes de iniciar sesión).
@@ -450,6 +470,9 @@ class DatabaseAccess():
         print("3. Salir")
 
     def _obtain_anon_choice(self):
+        """
+        Obtiene el input del usuario anónimo sobre las opciones propuestas. Otra función ejecuta la elección.
+        """
         while True:
             try:
                 anon_user_choice = int(input("Elija 1, 2 o 3: "))
@@ -465,6 +488,7 @@ class DatabaseAccess():
     def anon_register_login_pipeline(self):
         """
         Pipeline completa del menú inicial del repo.
+        Cierra sesiones ya abiertas, muestra el menú inicial de opciones, obtiene la elección y la ejecuta.
         """
         self.logoff()
         self._login_register_choice_menu()
