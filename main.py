@@ -38,7 +38,7 @@ class User():
         self.execute_user_choice(user_choice)
 
     def get_my_data(self):
-        datos = f"\nUsuario: {self.username}\nContraseña: {self.password}\n"
+        datos = f"\nUsuario: {self.username}\nContraseña: {self.password}\nPermisos: Usuario\n"
         datos += f"id: {self.id}\nLista de productos: {self.user["products"]}"
         print(datos)
         self.init_user_action()
@@ -93,8 +93,12 @@ class User():
 
         self.init_user_action()
 
-    def add_or_remove(self):
-        print("\n1: Añadir un producto a mi lista.\n2: Eliminar un producto de mi lista.\n3: Volver al menú.")
+    def add_or_remove(self, user = None):
+        """
+        Problema con esta, add_product y add_or_remove:
+        No me detecta como valor de parámetro default el 'self.username', porque el nombre "self" no está definido.
+        """
+        print("\n1: Añadir un producto a la lista.\n2: Eliminar un producto de la lista.\n3: Volver al menú.")
         ADD_REMOVE_OPTIONS = {1: self.add_product, 2: self.rm_product}
 
         while True:
@@ -108,25 +112,46 @@ class User():
             elif user_choice == 3:
                 break
             else:
-                ADD_REMOVE_OPTIONS[user_choice]()
+                if user == None:
+                    usuario = self.username
+                else:
+                    usuario = user
+                ADD_REMOVE_OPTIONS[user_choice](usuario) # NO ENTIENDO POR QUÉ NO ME DEJA DEFINIR COMO PARÁMETRO DEFAULT self.username
                 return None
         self.init_user_action()
 
-    def add_product(self):
+    def add_product(self, user = None):
+        """
+        Problema con esta, add_product y add_or_remove:
+        No me detecta como valor de parámetro default el 'self.username', porque el nombre "self" no está definido.
+        """
         producto = input("Producto a añadir (o escribe 'exit'): ")
         if producto != "exit":
-            self.database.add_product_to_data(self.username, producto)
+            if user == None:
+                usuario = self.username
+            else:
+                usuario = user
+            self.database.add_product_to_data(usuario, producto)
             print("Producto añadido con éxito. Volviendo al menú...")
         self.init_user_action()
 
-    def rm_product(self):
+    def rm_product(self, user = None):
+        """
+        Problema con esta, add_product y add_or_remove:
+        No me detecta como valor de parámetro default el 'self.username', porque el nombre "self" no está definido.
+        """
+        
         print("Especifique un producto o escriba 'exit' para continuar.")
+        if user == None:
+            usuario = self.username
+        else:
+            usuario = user
         while True:
             producto = input("Producto a eliminar: ")
             if producto == "exit":
                 break
-            elif producto in self.user["products"]:
-                self.database.rm_product_from_data(self.username, producto)
+            elif producto in self.database.data[usuario]["products"]:
+                self.database.rm_product_from_data(usuario, producto)
                 print("Producto eliminado con éxito. Volviendo al menú...")
                 break
             else:
@@ -139,21 +164,138 @@ class User():
         self.database.anon_register_login_pipeline()
 
 class Admin(User):
+    """
+    OJO: No modifica contraseñas aún. Es un bug.
+    """
 
-    def menu(self):
+    def __init__(self, username, password, db, id):
+        super().__init__(username, password, db, id)
+        self.menu_choices = {1: self.get_my_data, 2: self.add_or_remove, 3: self.credential_mod_options, 4: self.logout}
+
+    def show_options(self):
+        print(f"\nBienvenido {self.username}. ¿Qué deseas hacer?")
+        print("1: Ver el perfil de un usuario.\n2: Modificar los productos de un usuario.\n" \
+        "3: Modificar credenciales de un usuario, o crear/eliminar usuarios.\n4: Cerrar sesión.")
+
+    def execute_user_choice(self, user_choice):
+        if user_choice == 4:
+            self.logout()
+        else:
+            print("\nLista de usuarios en la base de datos: " + str(list(self.database.data.keys())))
+            print("* Si escogiste la opción de crear un nuevo usuario, " \
+            "puedes especificar cualquier usuario ya existente (incluso a ti mismo).")
+            self.menu_choices[user_choice](self.define_an_user())
+
+    def define_an_user(self):
+        while True:
+            targeted_user = input("¿A qué usuario quieres acceder? ")
+            if self.database.data.get(targeted_user, False):
+                break
+            print("Este usuario no existe.")
+        return targeted_user
+
+    def get_my_data(self, user):
         """
-        Permite obtener datos de la base de datos y modificarlos.
+        Devuelve los datos de un usuario formateados de forma visual e intuitiva.
+        Sería más eficiente iterar sobre claves de cada usuario, pero sería menos visual.
+        Si se añadieran muchas entradas o se espera que el programa crezca, sería necesario.
         """
-    def add_entry(self):
-        pass
-    def remove_entry(self):
-        pass
-    def modify_entry(self):
-        pass
-    def get_database(self):
-        pass
-    def get_entry(self):
-        pass
+        datos = f"\nUsuario: {user}\nContraseña: {self.database.data.get(user)["password"]}\nPermisos: {str(self.database.data.get(user)["permissions"])}\n"
+        datos += f"id: {self.database.data.get(user)["id"]}\nLista de productos: {self.database.data.get(user)["products"]}"
+        print(datos)
+        self.init_user_action()
+
+    def credential_mod_options(self, user):
+        """
+        Opciones para modificación de credenciales de todos los usuarios, o creación/eliminación de éstos.
+        """
+        print("\n1: Modificar un nombre de usuario.\n2: Modificar una contraseña.\n3: Crear un usuario\n4: Eliminar un usuario.\n5: Salir.")
+        user_choice_options = {1:self.set_username, 2:self.set_password, 3:self.create_user, 4:self.remove_user}
+        while True:
+            try: user_choice = int(input("Por favor, seleccione una opción: "))
+            except ValueError:
+                print("Valor incorrecto.") 
+                continue
+            if user_choice not in {1, 2, 3, 4, 5}:
+                print("Número fuera del rango.")
+                continue
+            elif user_choice == 5:
+                break
+            else:
+                user_choice_options[user_choice](user)
+                return None
+        self.init_user_action()
+
+    def set_username(self, user):
+
+        while True:
+            new_username = input("Nuevo usuario o 'exit': ")
+            verify_password = input("Escribe tu contraseña: ") == self.password
+            if len(new_username) > 20 or len(new_username) < 4 or not verify_password:
+                print("Nombre de usuario no válido o contraseña incorrecta.")
+                continue
+            elif new_username == 'exit':
+                break
+            else:
+                self.database.modify_username(user, new_username, self.database.data.get(user)["password"])
+                if user == self.username:
+                    self.username = new_username
+                print("Nombre de usuario modificado con éxito.")
+                break
+
+        self.init_user_action()
+
+    def set_password(self, user):
+        """
+        REVISAR: No parece que cambie la contraseña.
+        """
+        while True:
+            new_password = input("Nueva contraseña o 'exit': ")
+            verify_password = input("Escribe TU contraseña: ") == self.password
+            if len(new_password) > 20 or len(new_password) < 4 or not verify_password:
+                print("Alguna de las dos contraseñas es incorrecta. Vuelve a intentarlo.")
+                continue
+            elif new_password == "exit":
+                break
+            else:
+                self.database.modify_password(user, self.database.data[user]["password"], new_password)
+                if user == self.username:
+                    self.password = new_password
+                print("Nombre de usuario modificado con éxito.")
+                break
+
+        self.init_user_action()
+
+    def create_user(self, user):
+        permission_options = {1: User, 2: Admin}
+        while True:
+            try:
+                permission_choice = int(input("1: Permisos de usuario base.\n2: Permisos de administrador.\nElige una opción: "))
+            except ValueError:
+                continue
+            if permission_choice not in {1, 2}:
+                continue
+            break
+
+        self.database.register(True, self, permission_options[permission_choice])
+        self.init_user_action()
+
+    def remove_user(self, user):
+        """
+        Verifica la contraseña del admin y elimina un usuario.
+        """
+        if user == self.username:
+            print("No te puedes eliminar a ti mismo.")
+        else:
+            pw_verification = input("Escribe tu contraseña: ")
+            if pw_verification == self.password:
+                self.database.delete_user(user)
+                print("Usuario eliminado con éxito.")
+            else:
+                print("Contraseña incorrecta. Devolviendo al menú.")
+        self.init_user_action()
+
+        
 
 class DatabaseAccess():
 
@@ -167,7 +309,6 @@ class DatabaseAccess():
             3:self.exit
         }
         self.current_session = None
-        self.user_clearance = {"admin":Admin, "user":User}
         self.user_counter = 1
 
     # Añadir, eliminar o modificar usuarios.
@@ -177,7 +318,7 @@ class DatabaseAccess():
         Usado para añadir un usuario a la base de datos. Usuario base por defecto.
         """
         self._counter()
-        new_user_data = {username:{"permissions":permissions, "password": password, "id":self.user_counter}}
+        new_user_data = {username:{"permissions":permissions, "password": password, "id":self.user_counter, "products":[]}}
         self.data.update(new_user_data)
 
     def delete_user(self, username):
@@ -199,13 +340,16 @@ class DatabaseAccess():
 
     # Registrar, hacer login, o cerrar sesión.
 
-    def register(self):
+    def register(self, called_by_admin = False, admin = None, permission_option = User):
         while True:
-            username = input("Username: ")
-            password = input("Password: ")
+            username = input("Username (o exit): ")
+            password = input("Password (o exit): ")
             if username == "exit" or password == "exit":
-                self.anon_register_login_pipeline()
-                break
+                if not called_by_admin:
+                    self.anon_register_login_pipeline()
+                else:
+                    admin.init_user_action()
+                return None
             elif self.data.get(username, False):
                 print("Usuario ya registrado.")
                 continue
@@ -213,8 +357,11 @@ class DatabaseAccess():
                 print("Usuario y/o contraseña demasiado largo.")
                 continue
             break
-        self.add_new_user(username, password, User)
-        self.login(username, password)
+        self.add_new_user(username, password, permission_option)
+        print("Usuario creado con éxito.")
+
+        if not called_by_admin:
+            self.login(username, password)
 
     def login(self, uname = None, passw = None):
         """
